@@ -228,30 +228,3 @@ The `p2p_server.js` (Express.js server) exposes an API for the Python process to
 *   **Dependency Management:** Dependencies are managed in `pyproject.toml`. Regular updates and security audits of dependencies should be performed.
 *   **Community Support:** Support is provided through GitHub Issues. A `CONTRIBUTING.md` file guides community contributions.
 *   **Monitoring:** For production systems, the FastAPI node server can be integrated with standard monitoring tools like Prometheus and Grafana to track API latency, error rates, and agent activity.
-
-## 16. Future Improvements
-
-The current MVP provides a solid foundation for decentralized agent communication. The following enhancements focus on increasing robustness, performance, and enabling more complex, dynamic agent interactions.
-
-*   **Transition to a Production-Grade Transport Layer with gRPC:**
-    *   **Current Status:** The `Isek Node` in `isek/node/node_v2.py` uses FastAPI, providing an HTTP/JSON-based API. This is excellent for compatibility and ease of debugging, but can be a performance bottleneck for high-throughput, low-latency inter-agent communication.
-    *   **Proposed Enhancement:** Introduce an `EnhancedIsekNode` that utilizes gRPC for its primary transport. This involves defining a formal service contract with a `.proto` file, which would replace the implicit API defined by FastAPI routes.
-    *   **Benefits & Details:**
-        *   **Performance:** gRPC uses a binary protocol over HTTP/2, significantly reducing serialization overhead and network latency compared to JSON over HTTP/1.1.
-        *   **Strong Typing:** By defining services and messages in a `.proto` file, we enforce a strict, language-agnostic API contract between nodes, reducing runtime errors. The existing Pydantic models can serve as a reference for the Protobuf message definitions.
-        *   **Streaming:** gRPC natively supports bidirectional streaming, enabling more complex, real-time interactions like streaming intermediate results or maintaining persistent connections between agents.
-
-*   **Implement Dynamic, Capability-Based A2A Routing:**
-    *   **Current Status:** The existing `A2AProtocol` routes messages based on an explicit `receiver_node_id`. An agent must know the specific ID of the node it wants to talk to, which it discovers from the registry. This is a form of static, address-based routing.
-    *   **Proposed Enhancement:** Evolve the protocol to support dynamic, capability-based routing. An agent would dispatch a task not to a specific agent, but to a *capability* (e.g., `chat.completion`, `image_generation`, `data_analysis_v2`).
-    *   **Benefits & Details:**
-        *   **Decoupling & Scalability:** Agents no longer need to know about every other agent. They can simply request a capability, and the network finds a suitable provider. This allows new agents with new skills to join and serve requests without requiring existing agents to be reconfigured.
-        *   **Implementation:** This would require enhancing the `AgentCard` to include a list of registered `capabilities`. The `EnhancedA2AProtocol` would then implement a discovery and routing logic. When a task is broadcast, nodes with agents that match the required capability could bid for or claim the task, with the protocol handling the subsequent connection.
-
-*   **Introduce a Robust Task and Event Management System:**
-    *   **Current Status:** The framework currently lacks an explicit system for managing the lifecycle of tasks. A task is implicitly handled within a single `agent.run()` call. If a node fails mid-task, its state is lost.
-    *   **Proposed Enhancement:** Implement a `Task Store` component within each node.
-    *   **Benefits & Details:**
-        *   **Reliability & Recovery:** By logging task state changes as events (`task_received`, `tool_started`, `task_completed`), we create an auditable trail. If a node crashes, it could potentially recover and resume tasks by replaying the event log from a persistent store.
-        *   **Asynchronous Operations:** A task store is the foundation for handling long-running, asynchronous tasks. An agent could accept a task, return a `task_id` immediately, and the client could poll the task store for status updates.
-        *   **Initial Implementation:** The first version would be an in-memory, thread-safe dictionary using `threading.Lock` to manage concurrent access, as suggested. For true scalability and fault tolerance, this would be designed with a pluggable backend, allowing it to be swapped with a persistent, distributed store like Redis or a database in the future.
